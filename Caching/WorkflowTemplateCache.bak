@@ -1,0 +1,14 @@
+using FamilySagaWorkflow.Domain.Workflow;
+
+namespace FamilySagaWorkflow.Caching
+{
+    public class WorkflowTemplateCache
+    {
+        public Workflow? FamilyApprovalTemplate { get; private set; }
+
+        public void SetTemplate(Workflow workflow)
+        {
+            FamilyApprovalTemplate = workflow;
+        }
+    }
+}

@@ -1,0 +1,112 @@
+<div class="left-bar" [class.shown]="leftBarShown">
+  <div class="left-bar-inner">
+    <img
+      src="https://miukafoto.com/Content/shared_pictures/30a2e3e4-3965-42e6-8d0d-56014ab45021_20250328092721_family_workflow_components.png" />
+    <button (click)="onCloseDiagram()" class="btn">
+      Đóng
+    </button>
+  </div>
+</div>
+
+<div class="container-fluid p-3">
+
+  <div class="row g-3" style="min-height: 54px;">
+
+    <div class="col-md-12">
+      <div class="button-group">
+        @if (!!saga) {
+        <button (click)="onReset()" class="btn btn-danger">
+          Reset
+        </button>
+        }
+        <button (click)="showLeftBar()" class="btn">
+          Components
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="row g-3">
+
+    @for (actor of actors; track $index) {
+
+    @if (actor.name === 'Me') {
+
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-header bg-primary text-white">
+          Tôi muốn được phê duyệt
+        </div>
+        <div class="card-body">
+          <p>
+            <img [src]="actor.portrait" width="120" height="120" />
+          </p>
+          <p>Email: {{ actor.email }}</p>
+          <p>Kịch bản:</p>
+          <p>Bước 1: Ông hoặc Bà đồng ý</p>
+          <p>Bước 2: Vợ đồng ý</p>
+          <p>Bước 3: Cả con trai và con gái cùng đồng ý</p>
+          @if (lastCompletedStepOrder === -1) {
+          <button class="btn btn-success btn-sm" (click)="approve(actor)">Gửi yêu cầu</button>
+          }
+        </div>
+      </div>
+    </div>
+
+    } @else {
+
+    @if (!!saga) {
+
+    <div class="col-md-4">
+      <div class="card h-100" [class.reacted]="actor.reacted">
+        <div class="card-header bg-primary text-white">
+          {{ actor.name }}
+        </div>
+        <div class="card-body">
+          <p>
+            <img [src]="actor.portrait" width="120" height="120" />
+          </p>
+          <p>Email: {{ actor.email }}</p>
+          @if (!actor.reacted && actor.stepOrder === lastCompletedStepOrder + 1) {
+          <button class="btn btn-success btn-sm" (click)="approve(actor)">Đồng ý</button>
+          <button class="btn btn-danger btn-sm ms-2" (click)="reject(actor)">Từ chối</button>
+          }
+        </div>
+      </div>
+    </div>
+
+    }
+
+    }
+
+    }
+
+    <!-- ✅ Aligned Saga Card -->
+    <div class="col-md-12">
+      <div class="card border-info h-100">
+        <div class="card-header bg-info text-white">Trạng thái</div>
+        @if (!!saga) {
+        <div class="card-body">
+          <p><strong>Mã giao dịch:</strong> {{ saga.correlationId }}</p>
+          <p><strong>Trạng thái hiện tại:</strong> {{ saga.currentState }}</p>
+
+          <p><strong>Email của người yêu cầu:</strong> {{ saga.requestedByEmail }}</p>
+          <p><strong>Yêu cầu lúc:</strong> {{ saga.requestedAt != null ? (saga.requestedAt! | vietnameseDatetime) :
+            'Chưa xác định' }}</p>
+
+          <p><strong>Bước hiện tại:</strong> {{ saga.currentStep || 'Chưa xác định' }}</p>
+          <p><strong>Đã được phê duyệt toàn bộ?:</strong> {{ saga.isFullyApproved }}</p>
+          <p><strong>Email của người phê duyệt bước cuối nhất:</strong> {{ saga.lastApprovedByEmail || 'Chưa xác định'
+            }}</p>
+          <p><strong>Thời điểm phê duyệt cuối nhất:</strong> {{ saga.lastActionAt !== null ? (saga.lastActionAt! |
+            vietnameseDatetime) : 'Chưa xác định' }}</p>
+        </div>
+        } @else {
+        <div class="text-muted p-2">Chưa có yêu cầu nào</div>
+        }
+      </div>
+    </div>
+
+  </div>
+</div>
