@@ -1,23 +1,27 @@
 using System.Data;
 using WFE.Engine.DTOs;
 using Dapper;
+using Npgsql;
 
 namespace WFE.Engine.WorkflowRouting.Helpers
 {
     public static class RuleTreeEvaluator
     {
         public static async Task<(bool isAllowed, string? failedRuleName, string? filterMode)> EvaluateAsync(
-            RuleNodeDto node,
+            RuleNodeDto? node,
             IDbConnection connection,
             DynamicParameters parameters)
         {
+
+            if (node == null) return (true, null, null);
+
             // 🔹 Leaf Node Evaluation
             if (node.LogicalOperator == null || node.LogicalOperator == "Leaf")
             {
-                if (string.IsNullOrWhiteSpace(node.ConditionScript))
+                if (string.IsNullOrWhiteSpace(node.PredicateScript))
                     throw new InvalidOperationException("Missing ConditionScript in leaf node.");
 
-                var wrappedSql = $"SELECT CASE WHEN ({node.ConditionScript}) THEN 1 ELSE 0 END";
+                var wrappedSql = $"SELECT CASE WHEN ({node.PredicateScript}) THEN 1 ELSE 0 END";
 
                 try
                 {

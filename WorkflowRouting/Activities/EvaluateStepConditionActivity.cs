@@ -24,7 +24,7 @@ public class EvaluateStepConditionActivity(
         Console.WriteLine("🧻 [EvaluateStepConditionActivity Execute]");
         Console.WriteLine($"    → CorrelationId: {args.CorrelationId}");
         Console.WriteLine($"    → StepName: {args.StepName}");
-        Console.WriteLine($"    → ActorUsername: {args.ActorUsername}");
+        Console.WriteLine($"    → ActorUsername: {args.Actor.Username}");
 
         _logger.LogInformation("🧻 WorkflowStepId passed: {WorkflowStepId}", args.WorkflowStepId);
 
@@ -34,7 +34,7 @@ public class EvaluateStepConditionActivity(
 
         bool canVote = true;
         string reason;
-        string filterMode = "SoftWarn"; // Default fallback
+        string? filterMode = "SoftWarn"; // Default fallback
 
         // Step 1: Smart skip if no rule to evaluate
         if (args.RuleTree == null || !TreeHasExecutableLeaf(args.RuleTree))
@@ -59,7 +59,7 @@ public class EvaluateStepConditionActivity(
 
             await DbConnectionHelper.UseOpenConnectionAsync(dbType, connectionString, async conn =>
             {
-                (isAllowed, failedRule, filterMode) = await RuleTreeEvaluator.EvaluateAsync(args.RuleTree!, conn, parameters);
+                (isAllowed, failedRule, filterMode) = await RuleTreeEvaluator.EvaluateAsync(args.RuleTree, conn, parameters);
             });
 
             canVote = isAllowed || filterMode == "SoftWarn";
@@ -82,10 +82,10 @@ public class EvaluateStepConditionActivity(
             CanActorVote = canVote,
             FilterMode = filterMode,
             Reason = reason,
-            PerformedByUsername = args.ActorUsername,
-            PerformedByFullName = args.ActorFullName,
-            PerformedByEmail = args.ActorEmail,
-            PerformedByEmployeeCode = args.ActorEmployeeCode
+            ActorUsername = args.Actor.Username,
+            ActorFullName = args.Actor.FullName,
+            ActorEmail = args.Actor.Email,
+            ActorEmployeeCode = args.Actor.EmployeeCode
         });
 
         await _db.SaveChangesAsync();
@@ -97,10 +97,7 @@ public class EvaluateStepConditionActivity(
         {
             args.CorrelationId,
             args.StepName,
-            args.ActorUsername,
-            args.ActorFullName,
-            args.ActorEmail,
-            args.ActorEmployeeCode,
+            args.Actor,
             Reason = reason,
             IsApproved = canVote,
             PerformedAt = DateTime.UtcNow
@@ -123,7 +120,7 @@ public class EvaluateStepConditionActivity(
     private static bool TreeHasExecutableLeaf(RuleNodeDto node)
     {
         if ((node.LogicalOperator == null || node.LogicalOperator == "Leaf") 
-            && !string.IsNullOrWhiteSpace(node.ConditionScript))
+            && !string.IsNullOrWhiteSpace(node.PredicateScript))
             return true;
 
         return node.Children?.Any(TreeHasExecutableLeaf) == true;

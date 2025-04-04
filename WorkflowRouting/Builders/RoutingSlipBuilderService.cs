@@ -47,10 +47,10 @@ namespace WFE.Engine.WorkflowRouting.Builders
                     await _db.SaveChangesAsync();
                 }
 
-                var firstStepName = request.Steps.OrderBy(x => x.StepOrder).FirstOrDefault()?.StepName;
+                var firstStepName = request.FlatSteps?.OrderBy(x => x.StepOrder).FirstOrDefault()?.StepName;
                 if (firstStepName == null)
                 {
-                    _logger.LogCritical("❌ {RequestedByFullName} kicked off a request with no step", request.RequestedByFullName);
+                    _logger.LogCritical("❌ {RequestedByFullName} kicked off a request with no step", request.Actor.FullName);
                     throw new InvalidOperationException("Workflow must contain at least one step.");
                 }
 
@@ -65,13 +65,13 @@ namespace WFE.Engine.WorkflowRouting.Builders
                     DbType = request.DbType,
                     EncryptedConnectionString = request.EncryptedConnectionString,
 
-                    FinalApprovedByUsername = request.RequestedByUsername,
-                    FinalApprovedByFullName = request.RequestedByFullName,
-                    FinalApprovedByEmail = request.RequestedByEmail,
-                    FinalApprovedByEmployeeCode = request.RequestedByEmployeeCode
+                    LastActorUsername = request.Actor.Username,
+                    LastActorFullName = request.Actor.FullName,
+                    LastActorEmail = request.Actor.Email,
+                    LastActorEmployeeCode = request.Actor.EmployeeCode
                 };
 
-                var workflowSteps = request.Steps.Select(step => new WorkflowStep
+                var workflowSteps = request.FlatSteps?.Select(step => new WorkflowStep
                 {
                     Id = step.WorkflowStepId,
                     WorkflowId = workflowId,
@@ -81,69 +81,69 @@ namespace WFE.Engine.WorkflowRouting.Builders
                 }).ToList();
 
                 await _db.WorkflowInstances.AddAsync(instance);
-                await _db.WorkflowSteps.AddRangeAsync(workflowSteps);
+                if (workflowSteps != null)
+                {
+                    await _db.WorkflowSteps.AddRangeAsync(workflowSteps);
+                }
                 await _db.SaveChangesAsync();
 
                 _logger.LogInformation("🧾 Transaction committed: WorkflowInstance + {correlationId}", correlationId);
 
                 var builder = new RoutingSlipBuilder(correlationId);
 
-                foreach (var step in request.Steps.OrderBy(s => s.StepOrder))
+                if (request.FlatSteps != null)
                 {
-                    var activityArgs = new EvaluateStepConditionArguments
+                    foreach (var step in request.FlatSteps.OrderBy(s => s.StepOrder))
                     {
-                        CorrelationId = correlationId,
-                        WorkflowStepId = step.WorkflowStepId,
-                        StepName = step.StepName,
-                        StepOrder = step.StepOrder,
+                        var activityArgs = new EvaluateStepConditionArguments
+                        {
+                            CorrelationId = correlationId,
+                            WorkflowStepId = step.WorkflowStepId,
+                            StepName = step.StepName,
+                            StepOrder = step.StepOrder,
 
-                        ActorUsername = request.RequestedByUsername,
-                        ActorFullName = request.RequestedByFullName,
-                        ActorEmail = request.RequestedByEmail,
-                        ActorEmployeeCode = request.RequestedByEmployeeCode,
+                            Actor = request.Actor,
 
-                        RuleTree = step.RuleTree,
-                        DynamicSqlParameters = request.Attributes.ToDictionary(a => a.Key, a => a.Value)
-                    };
+                            RuleTree = step.RuleTree,
+                            DynamicSqlParameters = request.Attributes?.ToDictionary(a => a.Key, a => a.Value)
+                        };
 
-                    _logger.LogInformation("👉 Adding EvaluateStepCondition activity for step name {StepName}", step.StepName);
+                        _logger.LogInformation("👉 Adding EvaluateStepCondition activity for step name {StepName}", step.StepName);
 
-                    builder.AddActivity(
-                        $"EvaluateStep:{step.StepName}",
-                        _evaluateStepConditionUri,
-                        activityArgs
-                    );
+                        builder.AddActivity(
+                            $"EvaluateStep:{step.StepName}",
+                            _evaluateStepConditionUri,
+                            activityArgs
+                        );
 
-                    var voteArgs = new WaitForActorVoteArguments
-                    {
-                        CorrelationId = correlationId,
-                        WorkflowStepId = step.WorkflowStepId,
-                        StepName = step.StepName,
-                        StepOrder = step.StepOrder,
+                        var voteArgs = new WaitForActorVoteArguments
+                        {
+                            CorrelationId = correlationId,
+                            WorkflowStepId = step.WorkflowStepId,
+                            StepName = step.StepName,
+                            StepOrder = step.StepOrder,
+                            Actor = request.Actor,
+                        };
 
-                        ActorUsername = request.RequestedByUsername,
-                        ActorFullName = request.RequestedByFullName,
-                        ActorEmail = request.RequestedByEmail,
-                        ActorEmployeeCode = request.RequestedByEmployeeCode
-                    };
+                        _logger.LogInformation("👉 Adding WaitForActorVote activity for step name {StepName}", step.StepName);
 
-                    _logger.LogInformation("👉 Adding WaitForActorVote activity for step name {StepName}", step.StepName);
-
-                    builder.AddActivity(
-                        $"WaitForVote:{step.StepName}",
-                        new Uri("queue:wait-for-actor-vote_execute"),
-                        voteArgs
-                    );
+                        builder.AddActivity(
+                            $"WaitForVote:{step.StepName}",
+                            new Uri("queue:wait-for-actor-vote_execute"),
+                            voteArgs
+                        );
+                    }
                 }
 
                 // ✨ Add all required variables
                 builder.AddVariable("WorkflowId", workflowId);
                 builder.AddVariable("EncryptedConnectionString", request.EncryptedConnectionString);
                 builder.AddVariable("DbType", request.DbType);
-                builder.AddVariable("RequestedByUsername", request.RequestedByUsername);
-                builder.AddVariable("RequestedByFullName", request.RequestedByFullName);
-                builder.AddVariable("RequestedByEmail", request.RequestedByEmail);
-                builder.AddVariable("RequestedByEmployeeCode", request.RequestedByEmployeeCode);
+                builder.AddVariable("RequestedByUserId", request.Actor.Id);
+                builder.AddVariable("RequestedByUsername", request.Actor.Username);
+                builder.AddVariable("RequestedByFullName", request.Actor.FullName);
+                builder.AddVariable("RequestedByEmail", request.Actor.Email);
+                builder.AddVariable("RequestedByEmployeeCode", request.Actor.EmployeeCode);
                 builder.AddVariable("RequestedAt", request.RequestedAt);
 
                 if (request.Attributes is not null)

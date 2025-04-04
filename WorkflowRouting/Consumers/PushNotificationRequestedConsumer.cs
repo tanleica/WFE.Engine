@@ -13,7 +13,7 @@ namespace WFE.Engine.WorkflowRouting.Consumers
             var msg = context.Message;
 
             _logger.LogInformation("PushNotificationConsumer >> Title: {Title}, To: {Recipient}, Msg: {Message}",
-                msg.Title, msg.RecipientUsername, msg.Message);
+                msg.Title, msg.UserId, msg.Message);
 
             var payload = new
             {

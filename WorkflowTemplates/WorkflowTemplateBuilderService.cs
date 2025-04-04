@@ -40,7 +40,7 @@ namespace WFE.Engine.WorkflowTemplates
                     WorkflowId = workflow.Id,
                     StepOrder = stepDto.StepOrder,
                     StepName = stepDto.StepName,
-                    Condition = stepDto.RuleTree?.ConditionScript ?? string.Empty,
+                    ConditionScript = stepDto.RuleTree?.PredicateScript,
                     ApprovalType = stepDto.ApprovalType ?? ApprovalTypes.Sequential,
                 };
 
@@ -53,8 +53,10 @@ namespace WFE.Engine.WorkflowTemplates
                     {
                         Id = Guid.NewGuid(),
                         WorkflowStepId = stepId,
-                        ActorName = actorDto.FullName,
+                        Username = actorDto.Username,
+                        FullName = actorDto.FullName,
                         Email = actorDto.Email,
+                        EmployeeCode = actorDto.EmployeeCode,
                         IsMandatory = true,
                         Order = actorOrder++
                     };

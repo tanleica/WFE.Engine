@@ -14,10 +14,11 @@ namespace WFE.Engine.Domain.Workflow
 
         public DateTime? CompletedAt { get; set; }
 
-        public string? PerformedByUsername { get; set; }
-        public string? PerformedByFullName { get; set; }
-        public string? PerformedByEmail { get; set; }
-        public string? PerformedByEmployeeCode { get; set; }
+        public string? ActorUserId { get; set; }
+        public string? ActorUsername { get; set; }
+        public string? ActorFullName { get; set; }
+        public string? ActorEmail { get; set; }
+        public string? ActorEmployeeCode { get; set; }
         public string? Reason { get; set; }
         public string? FilterMode { get; set; }
         public bool ConditionPassed { get; set; } = false;

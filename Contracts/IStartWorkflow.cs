@@ -1,8 +1,12 @@
-namespace WFE.Engine.Contracts;
+using WFE.Engine.DTOs;
 
-public interface IStartWorkflow
+namespace WFE.Engine.Contracts
 {
-    Guid CorrelationId { get; }
-    string WorkflowName { get; }
-    string RequestedBy { get; }
+    public interface IStartWorkflow : IWorkflowEvent, IActorCarrier
+    {
+        IDictionary<string, string> Attributes { get; }
+        IEnumerable<PlannedStepDto> Steps { get; }
+        string DbType { get; }
+        string EncryptedConnectionString { get; }
+    }
 }

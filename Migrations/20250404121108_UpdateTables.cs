@@ -5,15 +5,15 @@
 namespace WFE.Engine.Migrations
 {
     /// <inheritdoc />
-    public partial class AddIsRejectedToWorkflowInstances : Migration
+    public partial class UpdateTables : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<bool>(
-                name: "IsRejected",
-                table: "WorkflowInstances",
-                type: "boolean",
+            migrationBuilder.AddColumn<string>(
+                name: "ActorUserId",
+                table: "StepProgresses",
+                type: "text",
                 nullable: true);
         }
 
@@ -21,8 +21,8 @@ namespace WFE.Engine.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(
-                name: "IsRejected",
-                table: "WorkflowInstances");
+                name: "ActorUserId",
+                table: "StepProgresses");
         }
     }
 }

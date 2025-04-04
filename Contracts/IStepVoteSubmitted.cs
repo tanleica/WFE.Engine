@@ -1,16 +1,6 @@
-namespace WFE.Engine.Contracts;
-
-public interface IStepVoteSubmitted
+namespace WFE.Engine.Contracts
 {
-    Guid CorrelationId { get; }
-    string StepName { get; }
-
-    string PerformedByUsername { get; }
-    string PerformedByFullName { get; }
-    string PerformedByEmail { get; }
-    string PerformedByEmployeeCode { get; }
-
-    bool IsApproved { get; }
-    string? Reason { get; }
-    DateTime PerformedAt { get; }
+    public interface IStepVoteSubmitted : IWorkflowEvent, IStepAware, IActorCarrier
+    {
+    }
 }

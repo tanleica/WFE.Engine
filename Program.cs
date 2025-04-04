@@ -36,10 +36,6 @@ Console.WriteLine($"Detected Service Name: {assemblyName}");
 builder.Services.AddMassTransit(x =>
 {
 
-    // Register Activity
-    x.AddActivitiesFromNamespaceContaining<EvaluateStepConditionActivity>();
-    x.AddActivitiesFromNamespaceContaining<PushNotificationActivity>();
-
     // Register Consumers
     var entryAssembly = typeof(Program).Assembly;
     x.AddConsumers(entryAssembly);

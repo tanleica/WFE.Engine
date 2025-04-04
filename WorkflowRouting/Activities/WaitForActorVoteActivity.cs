@@ -11,30 +11,24 @@ public class WaitForActorVoteActivity : IActivity<WaitForActorVoteArguments, Wai
 
         Console.WriteLine($"🎭 [WaitForActorVoteActivity Execute] Waiting for vote:");
         Console.WriteLine($"   → StepName: {args.StepName}");
-        Console.WriteLine($"   → ActorUsername: {args.ActorUsername}");
-        Console.WriteLine($"   → ActorFullName: {args.ActorFullName}");
-        Console.WriteLine($"   → ActorEmail: {args.ActorEmail}");
-        Console.WriteLine($"   → ActorEmployeeCode: {args.ActorEmployeeCode}");
+        Console.WriteLine($"   → ActorUsername: {args.Actor.Username}");
+        Console.WriteLine($"   → ActorFullName: {args.Actor.FullName}");
+        Console.WriteLine($"   → ActorEmail: {args.Actor.Email}");
+        Console.WriteLine($"   → ActorEmployeeCode: {args.Actor.EmployeeCode}");
 
         // ✅ Publish vote request event
         await context.Publish<IVoteRequested>(new
         {
             args.CorrelationId,
             args.StepName,
-            args.ActorUsername,
-            args.ActorFullName,
-            args.ActorEmail,
-            args.ActorEmployeeCode,
+            args.Actor,
             RequestedAt = DateTime.UtcNow
         });
 
         return context.Completed<WaitForActorVoteLog>(new()
         {
             StepName = args.StepName,
-            ActorUsername = args.ActorUsername,
-            ActorFullName = args.ActorFullName,
-            ActorEmail = args.ActorEmail,
-            ActorEmployeeCode = args.ActorEmployeeCode
+            Actor = args.Actor,
         });
     }
 

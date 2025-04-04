@@ -6,20 +6,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace WFE.Engine.WorkflowRouting.Consumers
 {
-    public class StepConditionPassedConsumer : IConsumer<IStepConditionPassed>
+    public class StepConditionPassedConsumer(SagaDbContext db) : IConsumer<IStepConditionPassed>
     {
-        private readonly SagaDbContext _db;
-
-        public StepConditionPassedConsumer(SagaDbContext db)
-        {
-            _db = db;
-        }
+        private readonly SagaDbContext _db = db;
 
         public async Task Consume(ConsumeContext<IStepConditionPassed> context)
         {
             var message = context.Message;
 
-            Console.WriteLine($"✅ Step Completed: {message.StepName} by {message.PerformedByFullName}");
+            Console.WriteLine($"✅ Step Completed: {message.StepName} by {message.Actor.FullName}");
 
             // Save step progress
             await _db.StepProgresses.AddAsync(new StepProgress
@@ -30,11 +25,11 @@ namespace WFE.Engine.WorkflowRouting.Consumers
                     .Select(s => s.Id)
                     .FirstAsync(),
 
-                PerformedByUsername = message.PerformedByUsername,
-                PerformedByFullName = message.PerformedByFullName,
-                PerformedByEmail = message.PerformedByEmail,
-                PerformedByEmployeeCode = message.PerformedByEmployeeCode,
-                CompletedAt = message.PerformedAt,
+                ActorUsername = message.Actor.Username,
+                ActorFullName = message.Actor.FullName,
+                ActorEmail = message.Actor.Email,
+                ActorEmployeeCode = message.Actor.EmployeeCode,
+                CompletedAt = message.OccurredAt,
                 IsCompleted = true,
                 Reason = message.Reason
             });

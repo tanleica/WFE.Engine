@@ -30,16 +30,20 @@ namespace WFE.Engine.Simulators
                     var kickoffDto = new KickoffRequestDto
                     {
                         WorkflowId = Guid.NewGuid(),
-                        RequestedByUsername = username,
-                        RequestedByFullName = fullName,
-                        RequestedByEmail = email,
-                        RequestedByEmployeeCode = "EMP001",
+                        Actor = new()
+                        {
+                            Id = Guid.NewGuid(),
+                            Username = username,
+                            FullName = fullName,
+                            Email = email,
+                            EmployeeCode = "EMP001",
+                        },
                         Reason = "Auto test kickoff",
                         RequestedAt = DateTime.UtcNow,
                         EncryptedConnectionString = "<encrypted-connection-string>",
                         DbType = "SqlServer",
 
-                        Steps =
+                        FlatSteps =
                         [
                             new()
                             {
@@ -50,7 +54,7 @@ namespace WFE.Engine.Simulators
                                 Actors = [GenerateRandomActor(), GenerateRandomActor()],
                                 RuleTree = new RuleNodeDto
                                 {
-                                    ConditionScript = "LeaveDays <= 5",
+                                    PredicateScript = "LeaveDays <= 5",
                                     LogicalOperator = "AND",
                                     FilterMode = "SoftWarn"
                                 }
@@ -64,7 +68,7 @@ namespace WFE.Engine.Simulators
                                 Actors = [GenerateRandomActor(), GenerateRandomActor()],
                                 RuleTree = new RuleNodeDto
                                 {
-                                    ConditionScript = "TotalCost > 1000",
+                                    PredicateScript = "TotalCost > 1000",
                                     LogicalOperator = "AND",
                                     FilterMode = "HardBlock"
                                 }
@@ -96,7 +100,7 @@ namespace WFE.Engine.Simulators
                     var bus = scope.ServiceProvider.GetRequiredService<IBus>();
                     await bus.Execute(routingSlip);
 
-                    _logger.LogInformation("🕔 🚀 SimulatedKickoffWorker ExecuteAsync: RoutingSlip built for request by {User}. Activities: {Count}", kickoffDto.RequestedByUsername, routingSlip.Itinerary.Count);
+                    _logger.LogInformation("🕔 🚀 SimulatedKickoffWorker ExecuteAsync: RoutingSlip built for request by {User}. Activities: {Count}", kickoffDto.Actor.Username, routingSlip.Itinerary.Count);
 
 
                 }

@@ -27,10 +27,10 @@ public class StepVoteSubmittedConsumer(
 
         _logger.LogInformation("🔔 [StepVoteSubmittedConsumer Consume]:");
         _logger.LogInformation("   → Step: {Step}", message.StepName);
-        _logger.LogInformation("   → Username: {Username}", message.PerformedByUsername);
-        _logger.LogInformation("   → FullName: {FullName}", message.PerformedByFullName);
-        _logger.LogInformation("   → Email: {Email}", message.PerformedByEmail);
-        _logger.LogInformation("   → EmployeeCode: {Code}", message.PerformedByEmployeeCode);
+        _logger.LogInformation("   → Username: {Username}", message.Actor.Username);
+        _logger.LogInformation("   → FullName: {FullName}", message.Actor.FullName);
+        _logger.LogInformation("   → Email: {Email}", message.Actor.Email);
+        _logger.LogInformation("   → EmployeeCode: {Code}", message.Actor.EmployeeCode);
 
         // Find the workflow instance first (must include WorkflowId)
         var workflowInstance = await _db.WorkflowInstances
@@ -64,14 +64,13 @@ public class StepVoteSubmittedConsumer(
         {
             CorrelationId = message.CorrelationId,
             WorkflowStepId = step.Id,
-            PerformedByUsername = message.PerformedByUsername,
-            PerformedByFullName = message.PerformedByFullName,
-            PerformedByEmail = message.PerformedByEmail,
-            PerformedByEmployeeCode = message.PerformedByEmployeeCode,
-            CompletedAt = message.PerformedAt,
+            ActorUsername = message.Actor.Username,
+            ActorFullName = message.Actor.FullName,
+            ActorEmail = message.Actor.Email,
+            ActorEmployeeCode = message.Actor.EmployeeCode,
+            CompletedAt = message.OccurredAt,
             IsCompleted = true,
             Reason = message.Reason,
-            ConditionPassed = message.IsApproved,
             CanActorVote = true
         });
 
@@ -94,17 +93,24 @@ public class StepVoteSubmittedConsumer(
             return;
         }
 
+        /* EARLY FINALIZE (TMP for TEST) */
+        await _executor.FinalizeStepAsync(
+            message.CorrelationId,
+            message.StepName,
+            isStepApproved,
+            message.Actor,
+            message.Reason
+        );
+        return;
 
+        /* UNCOMMENT THIS BLOCK WHEN WE DO NOT TEST
         if (isStepApproved || isStepRejected)
         {
             await _executor.FinalizeStepAsync(
                 message.CorrelationId,
                 message.StepName,
                 isStepApproved,
-                message.PerformedByUsername,
-                message.PerformedByFullName,
-                message.PerformedByEmail,
-                message.PerformedByEmployeeCode,
+                message.Actor,
                 message.Reason
             );
         }
@@ -112,5 +118,6 @@ public class StepVoteSubmittedConsumer(
         {
             _logger.LogInformation("🔄 Step '{StepName}' is waiting for more votes...", message.StepName);
         }
+        */
     }
 }

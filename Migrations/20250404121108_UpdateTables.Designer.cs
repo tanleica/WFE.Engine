@@ -12,8 +12,8 @@ using WFE.Engine.Persistence;
 namespace WFE.Engine.Migrations
 {
     [DbContext(typeof(SagaDbContext))]
-    [Migration("20250402132322_AddIsRejectedToWorkflowInstances")]
-    partial class AddIsRejectedToWorkflowInstances
+    [Migration("20250404121108_UpdateTables")]
+    partial class UpdateTables
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -25,11 +25,140 @@ namespace WFE.Engine.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("WFE.Engine.Domain.Outbox.OutboxMessage", b =>
+                {
+                    b.Property<Guid>("MessageId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("Created")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Destination")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("MessageType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Processed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.HasKey("MessageId");
+
+                    b.ToTable("OutboxMessages", (string)null);
+                });
+
+            modelBuilder.Entity("WFE.Engine.Domain.Outbox.OutboxState", b =>
+                {
+                    b.Property<Guid>("StateId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("Created")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("Delivered")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("RetryCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("Pending");
+
+                    b.HasKey("StateId");
+
+                    b.HasIndex("MessageId")
+                        .IsUnique();
+
+                    b.ToTable("OutboxStates", (string)null);
+                });
+
+            modelBuilder.Entity("WFE.Engine.Domain.Workflow.StepAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CorrelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("EmployeeCode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsCurrent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime?>("ReplacedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("WorkflowStepId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkflowStepId");
+
+                    b.ToTable("StepAssignments");
+                });
+
             modelBuilder.Entity("WFE.Engine.Domain.Workflow.StepProgress", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("ActorEmail")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ActorEmployeeCode")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ActorFullName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ActorUserId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ActorUsername")
+                        .HasColumnType("text");
 
                     b.Property<bool>("CanActorVote")
                         .HasColumnType("boolean");
@@ -48,18 +177,6 @@ namespace WFE.Engine.Migrations
 
                     b.Property<bool>("IsCompleted")
                         .HasColumnType("boolean");
-
-                    b.Property<string>("PerformedByEmail")
-                        .HasColumnType("text");
-
-                    b.Property<string>("PerformedByEmployeeCode")
-                        .HasColumnType("text");
-
-                    b.Property<string>("PerformedByFullName")
-                        .HasColumnType("text");
-
-                    b.Property<string>("PerformedByUsername")
-                        .HasColumnType("text");
 
                     b.Property<string>("Reason")
                         .HasColumnType("text");
@@ -103,11 +220,16 @@ namespace WFE.Engine.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("ActorName")
+                    b.Property<string>("Email")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Email")
+                    b.Property<string>("EmployeeCode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<bool>("IsMandatory")
@@ -117,6 +239,10 @@ namespace WFE.Engine.Migrations
 
                     b.Property<int>("Order")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<Guid>("WorkflowStepId")
                         .HasColumnType("uuid");
@@ -144,26 +270,28 @@ namespace WFE.Engine.Migrations
                     b.Property<string>("EncryptedConnectionString")
                         .HasColumnType("text");
 
-                    b.Property<string>("FinalApprovedByEmail")
-                        .HasColumnType("text");
-
-                    b.Property<string>("FinalApprovedByEmployeeCode")
-                        .HasColumnType("text");
-
-                    b.Property<string>("FinalApprovedByFullName")
-                        .HasColumnType("text");
-
-                    b.Property<string>("FinalApprovedByUsername")
-                        .HasColumnType("text");
-
                     b.Property<bool>("IsApproved")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
-                    b.Property<bool?>("IsRejected")
+                    b.Property<bool>("IsRejected")
                         .HasColumnType("boolean");
 
                     b.Property<DateTime>("LastActionAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastActorEmail")
+                        .HasColumnType("text");
+
+                    b.Property<string>("LastActorEmployeeCode")
+                        .HasColumnType("text");
+
+                    b.Property<string>("LastActorFullName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("LastActorUsername")
+                        .HasColumnType("text");
 
                     b.Property<Guid>("WorkflowId")
                         .HasColumnType("uuid");
@@ -211,11 +339,7 @@ namespace WFE.Engine.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Condition")
-                        .HasColumnType("text");
-
                     b.Property<string>("ConditionScript")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("StepName")
@@ -233,6 +357,28 @@ namespace WFE.Engine.Migrations
                     b.HasIndex("WorkflowId");
 
                     b.ToTable("WorkflowSteps");
+                });
+
+            modelBuilder.Entity("WFE.Engine.Domain.Outbox.OutboxState", b =>
+                {
+                    b.HasOne("WFE.Engine.Domain.Outbox.OutboxMessage", "Message")
+                        .WithOne("State")
+                        .HasForeignKey("WFE.Engine.Domain.Outbox.OutboxState", "MessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Message");
+                });
+
+            modelBuilder.Entity("WFE.Engine.Domain.Workflow.StepAssignment", b =>
+                {
+                    b.HasOne("WFE.Engine.Domain.Workflow.WorkflowStep", "Step")
+                        .WithMany()
+                        .HasForeignKey("WorkflowStepId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Step");
                 });
 
             modelBuilder.Entity("WFE.Engine.Domain.Workflow.StepProgress", b =>
@@ -277,6 +423,11 @@ namespace WFE.Engine.Migrations
                         .IsRequired();
 
                     b.Navigation("Workflow");
+                });
+
+            modelBuilder.Entity("WFE.Engine.Domain.Outbox.OutboxMessage", b =>
+                {
+                    b.Navigation("State");
                 });
 
             modelBuilder.Entity("WFE.Engine.Domain.Workflow.Workflow", b =>

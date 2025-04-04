@@ -39,12 +39,12 @@ public class ApprovalRoutingController : ControllerBase
         {
             trackingNumber = routingSlip.TrackingNumber,
             correlationId,
-            request.RequestedByUsername,
-            request.RequestedByFullName,
-            request.RequestedByEmail,
-            request.RequestedByEmployeeCode,
+            request.Actor.Username,
+            request.Actor.FullName,
+            request.Actor.Email,
+            request.Actor.EmployeeCode,
             request.RequestedAt
-        }, $"✅ Routing slip started for '{request.RequestedByFullName}' ({request.RequestedByEmployeeCode})"));
+        }, $"✅ Routing slip started for '{request.Actor.FullName}' ({request.Actor.EmployeeCode})"));
     }
 
     [HttpPost("vote")]
@@ -55,10 +55,7 @@ public class ApprovalRoutingController : ControllerBase
         {
             dto.CorrelationId,
             dto.StepName,
-            dto.ActorUsername,
-            dto.ActorFullName,
-            dto.ActorEmail,
-            dto.ActorEmployeeCode,
+            dto.Actor,
             dto.IsApproved,
             dto.Reason,
             PerformedAt = DateTime.UtcNow

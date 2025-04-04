@@ -20,15 +20,19 @@ public class RoutingSlipExecutor(IPublishEndpoint publishEndpoint, ILogger<Routi
         await _publishEndpoint.Publish<IStartWorkflow>(new
         {
             CorrelationId = Guid.NewGuid(),
-            dto.RequestedByUsername,
-            dto.RequestedByFullName,
-            dto.RequestedByEmail,
-            dto.RequestedByEmployeeCode,
+            Actor = new Actor
+            {
+                Id = dto.Actor.Id,
+                Username = dto.Actor.Username,
+                FullName = dto.Actor.FullName,
+                Email = dto.Actor.Email,
+                EmployeeCode = dto.Actor.EmployeeCode
+            },
             dto.Reason,
             dto.RequestedAt,
             dto.EncryptedConnectionString,
             dto.DbType,
-            dto.Steps,
+            dto.FlatSteps,
             dto.Attributes
         }, cancellationToken);
         _logger.LogInformation("🍻 RoutingSlipExecutor StartAsync Publish<T> passed");
@@ -38,10 +42,7 @@ public class RoutingSlipExecutor(IPublishEndpoint publishEndpoint, ILogger<Routi
         Guid correlationId,
         string stepName,
         bool isApproved,
-        string actorUsername,
-        string actorFullName,
-        string actorEmail,
-        string actorEmployeeCode,
+        Actor actor,
         string? reason = null)
     {
         _logger.LogInformation("🚩 RoutingSlipExecutor FinalizeStepAsync method called");
@@ -68,21 +69,18 @@ public class RoutingSlipExecutor(IPublishEndpoint publishEndpoint, ILogger<Routi
         {
             CorrelationId = correlationId,
             FinalStepName = stepName,
-            FinalApprovedByUsername = actorUsername,
-            FinalApprovedByFullName = actorFullName,
-            FinalApprovedByEmail = actorEmail,
-            FinalApprovedByEmployeeCode = actorEmployeeCode,
+            Actor = actor,
             ApprovedAt = DateTime.UtcNow
         });
         await _publishEndpoint.Publish<IPushNotificationRequested>(new
         {
             CorrelationId = correlationId,
             Title = isApproved
-                ? $"🎉 Request Approved by {actorFullName}"
-                : $"❌ Request Rejected by {actorFullName}",
+                ? $"🎉 Request Approved by {actor.FullName}"
+                : $"❌ Request Rejected by {actor.FullName}",
             Message = isApproved
-                ? $"🎉 Request Approved by {actorFullName}"
-                : $"❌ Request Rejected by {actorFullName}",
+                ? $"🎉 Request Approved by {actor.FullName}"
+                : $"❌ Request Rejected by {actor.FullName}",
             RecipientUsername = "tannv",
             SentAt = DateTime.UtcNow
         });

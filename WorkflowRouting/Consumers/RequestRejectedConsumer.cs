@@ -1,31 +1,51 @@
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 using WFE.Engine.Contracts;
+using WFE.Engine.Persistence;
 
 namespace WFE.Engine.WorkflowRouting.Consumers;
 
-public class RequestRejectedConsumer(ILogger<RequestRejectedConsumer> logger) : IConsumer<IRequestRejected>
+public class RequestRejectedConsumer(SagaDbContext db) : IConsumer<IRequestRejected>
 {
-    private readonly ILogger<RequestRejectedConsumer> _logger = logger;
+    private readonly SagaDbContext _db = db;
 
-    public Task Consume(ConsumeContext<IRequestRejected> context)
+    public async Task Consume(ConsumeContext<IRequestRejected> context)
     {
-        /*
-        var msg = context.Message;
+        var message = context.Message;
+        Console.WriteLine($"❌ Request Rejected: {message.CorrelationId} — Step: {message.StepName}");
 
-        _logger.LogWarning("❌ REQUEST REJECTED");
-        _logger.LogWarning("↪️ Step: {Step}", msg.StepName);
-        _logger.LogWarning("🧑‍💼 By: {User} ({Email})", msg.RejectedByFullName, msg.RejectedByEmail);
-        _logger.LogWarning("💬 Reason: {Reason}", msg.Reason ?? "(none)");
-        _logger.LogWarning("🕒 At: {Time}", msg.RejectedAt);
+        // ✅ Enforce: WorkflowInstance must exist
+        var instance = await _db.WorkflowInstances
+            .FirstOrDefaultAsync(i => i.CorrelationId == message.CorrelationId);
 
-        // ✅ Publish push notification request
+        if (instance is null)
+        {
+            Console.WriteLine($"❌ WorkflowInstance not found for CorrelationId = {message.CorrelationId}");
+            return;
+        }
+
+        // 🔄 Update rejection state
+        instance.IsRejected = true;
+        instance.IsApproved = false;
+        instance.CurrentStep = message.StepName;
+        instance.LastActorUsername = message.Actor.Username;
+        instance.LastActorFullName = message.Actor.FullName;
+        instance.LastActorEmail = message.Actor.Email;
+        instance.LastActorEmployeeCode = message.Actor.EmployeeCode;
+        instance.LastActionAt = message.OccurredAt;
+
+        await _db.SaveChangesAsync();
+        Console.WriteLine("✏️ Updated workflow instance after rejection.");
+
+        // ✅ Push notification
         await context.Publish<IPushNotificationRequested>(new
         {
-            RecipientUsername = "b2e05ec4-6022-4f35-baea-ceb7fa2ee9dd",
-            Title = $"Request Rejected at Step: {msg.StepName}",
-            Body = msg.Reason ?? "No reason provided"
+            message.CorrelationId,
+            message.StepName,
+            message.Actor,
+            Title = $"❌ Request Rejected",
+            Message = $"Request {message.CorrelationId} was rejected at step: {message.StepName}",
+            UserId = Guid.Parse("b2e05ec4-6022-4f35-baea-ceb7fa2ee9dd")
         });
-        */
-        return Task.CompletedTask;
     }
 }

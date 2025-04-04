@@ -1,11 +1,6 @@
 namespace WFE.Engine.Contracts
 {
-    public interface IPushNotificationRequested
+    public interface IPushNotificationRequested : IWorkflowEvent, IStepAware, IActorCarrier, IPushNotificationAware
     {
-        Guid CorrelationId { get; }
-        string Title { get; }
-        string Message { get; }
-        string RecipientUsername { get; }
-        DateTime SentAt { get; }
     }
 }

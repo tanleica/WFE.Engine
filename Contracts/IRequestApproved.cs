@@ -1,15 +1,6 @@
-namespace WFE.Engine.Contracts;
-
-public interface IRequestApproved
+namespace WFE.Engine.Contracts
 {
-    Guid CorrelationId { get; }
-    Guid WorkflowId { get; }
-    DateTime ApprovedAt { get; }
-    string FinalStepName { get; }
-
-    string FinalApprovedByUsername { get; }
-    string FinalApprovedByFullName { get; }
-    string FinalApprovedByEmail { get; }
-    string FinalApprovedByEmployeeCode { get; }
- 
+    public interface IRequestApproved : IWorkflowEvent, IStepAware, IActorCarrier
+    {
+    }
 }

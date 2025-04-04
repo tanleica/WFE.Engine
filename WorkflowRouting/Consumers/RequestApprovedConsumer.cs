@@ -1,72 +1,49 @@
 using MassTransit;
 using WFE.Engine.Contracts;
-using WFE.Engine.Domain.Workflow;
 using WFE.Engine.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace WFE.Engine.WorkflowRouting.Consumers;
 
-public class RequestApprovedConsumer(SagaDbContext db, HttpClient httpClient) : IConsumer<IRequestApproved>
+public class RequestApprovedConsumer(SagaDbContext db) : IConsumer<IRequestApproved>
 {
     private readonly SagaDbContext _db = db;
-    private readonly HttpClient _httpClient = httpClient;
     public async Task Consume(ConsumeContext<IRequestApproved> context)
     {
         var message = context.Message;
-        Console.WriteLine($"🎉 Request Approved: {message.CorrelationId} — Final Step: {message.FinalStepName}");
+        Console.WriteLine($"🎉 Request Approved: {message.CorrelationId} — Final Step: {message.StepName}");
 
-        // First: Try to find existing instance (no tracking for read-only)
-        var existing = await _db.WorkflowInstances
-            .AsNoTracking()
+        // ✅ Enforce: WorkflowInstance must exist
+        var instance = await _db.WorkflowInstances
             .FirstOrDefaultAsync(i => i.CorrelationId == message.CorrelationId);
 
-        if (existing == null)
+        if (instance is null)
         {
-            // Create new instance
-            var newInstance = new WorkflowInstance
-            {
-                CorrelationId = message.CorrelationId,
-                WorkflowId = Guid.NewGuid(),
-                CurrentStep = message.FinalStepName,
-                IsApproved = true,
-                FinalApprovedByUsername = message.FinalApprovedByUsername,
-                FinalApprovedByFullName = message.FinalApprovedByFullName,
-                FinalApprovedByEmail = message.FinalApprovedByEmail,
-                FinalApprovedByEmployeeCode = message.FinalApprovedByEmployeeCode,
-                LastActionAt = message.ApprovedAt
-            };
-
-            await _db.WorkflowInstances.AddAsync(newInstance);
-            Console.WriteLine("🆕 Created new workflow instance.");
+            Console.WriteLine($"❌ WorkflowInstance not found for CorrelationId = {message.CorrelationId}");
+            return;
         }
-        else
-        {
-            // Update existing instance
-            var updatedInstance = new WorkflowInstance
-            {
-                WorkflowId = existing.WorkflowId,
-                CorrelationId = existing.CorrelationId,
-                CurrentStep = message.FinalStepName,
-                IsApproved = true,
-                FinalApprovedByUsername = message.FinalApprovedByUsername,
-                FinalApprovedByFullName = message.FinalApprovedByFullName,
-                FinalApprovedByEmail = message.FinalApprovedByEmail,
-                FinalApprovedByEmployeeCode = message.FinalApprovedByEmployeeCode,
-                LastActionAt = message.ApprovedAt
-            };
 
-            _db.WorkflowInstances.Update(updatedInstance);
-            Console.WriteLine("✏️ Updated existing workflow instance.");
-        }
+        // 🔄 Update final approval state
+        instance.IsApproved = true;
+        instance.CurrentStep = message.StepName;
+        instance.LastActorUsername = message.Actor.Username;
+        instance.LastActorFullName = message.Actor.FullName;
+        instance.LastActorEmail = message.Actor.Email;
+        instance.LastActorEmployeeCode = message.Actor.EmployeeCode;
+        instance.LastActionAt = message.OccurredAt;
 
         await _db.SaveChangesAsync();
+        Console.WriteLine("✏️ Updated existing workflow instance.");
 
-        // ✅ Publish push notification request
+        // ✅ Push Notification
         await context.Publish<IPushNotificationRequested>(new
         {
-            RecipientUsername = "b2e05ec4-6022-4f35-baea-ceb7fa2ee9dd",
-            Title = $"🎉 Request Approved: {message.CorrelationId} — Final Step: {message.FinalStepName}",
-            Body = "No reason provided"
+            message.CorrelationId,
+            message.StepName,
+            message.Actor,
+            Title = $"🎉 Request Approved",
+            Message = $"Request {message.CorrelationId} was approved at step: {message.StepName}",
+            UserId = Guid.Parse("b2e05ec4-6022-4f35-baea-ceb7fa2ee9dd")  // Example fallback
         });
     }
 }
