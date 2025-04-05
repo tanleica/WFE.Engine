@@ -6,21 +6,22 @@ namespace WFE.Engine.Persistence
 {
     public class SagaDbContext(DbContextOptions options) : DbContext(options)
     {
-        // 🟩 Core Workflow Tables
+        // Core Workflow Tables
         public DbSet<Workflow> Workflows => Set<Workflow>();
-        public DbSet<WorkflowInstance> WorkflowInstances => Set<WorkflowInstance>();
+        public DbSet<WorkflowBranch> WorkflowBranches => Set<WorkflowBranch>();
         public DbSet<WorkflowStep> WorkflowSteps => Set<WorkflowStep>();
         public DbSet<WorkflowActor> WorkflowActors => Set<WorkflowActor>();
+        public DbSet<WorkflowInstance> WorkflowInstances => Set<WorkflowInstance>();
         public DbSet<StepProgress> StepProgresses => Set<StepProgress>();
         public DbSet<StepAssignment> StepAssignments => Set<StepAssignment>();
 
-        // 🟦 Outbox (MassTransit built-in saga durability)
+        // Outbox (MassTransit built-in saga durability)
         public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
         public DbSet<OutboxState> OutboxStates => Set<OutboxState>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // 🟩 Workflow
+            // Workflow
             modelBuilder.Entity<Workflow>(entity =>
             {
                 entity.HasKey(x => x.Id);
@@ -29,33 +30,51 @@ namespace WFE.Engine.Persistence
                 entity.Property(x => x.IsActive).HasDefaultValue(true);
             });
 
-            // 🟩 WorkflowInstance
-            modelBuilder.Entity<WorkflowInstance>(entity =>
+            // WorkflowBranch
+            modelBuilder.Entity<WorkflowBranch>(entity =>
             {
-                entity.HasKey(x => x.CorrelationId);
-                entity.Property(x => x.WorkflowId).IsRequired();
-                entity.Property(x => x.CurrentStep);
-                entity.Property(x => x.IsApproved).HasDefaultValue(false);
-                entity.Property(x => x.IsRejected);
-                entity.Property(x => x.LastActionAt);
+                entity.HasKey(x => x.Id);
+                entity.Property(x => x.Name).IsRequired();
+                entity.Property(x => x.Priority).HasDefaultValue(1);
+                entity.Property(x => x.EntryConditionJson);
+
+                entity.HasOne<Workflow>()
+                      .WithMany(w => w.Branches)
+                      .HasForeignKey(x => x.WorkflowId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // 🟩 WorkflowStep
+            // WorkflowStep
             modelBuilder.Entity<WorkflowStep>(entity =>
             {
                 entity.HasKey(x => x.Id);
-                entity.HasOne(x => x.Workflow)
-                      .WithMany(x => x.Steps)
-                      .HasForeignKey(x => x.WorkflowId)
-                      .OnDelete(DeleteBehavior.Cascade);
-
-                entity.Property(x => x.StepOrder);
                 entity.Property(x => x.StepName).IsRequired();
+                entity.Property(x => x.StepOrder);
                 entity.Property(x => x.ApprovalType).IsRequired();
                 entity.Property(x => x.ConditionScript);
+
+                entity.HasOne(x => x.Branch)
+                      .WithMany(b => b.Steps)
+                      .HasForeignKey(x => x.BranchId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // 🟦 WorkflowActor
+            // WorkflowRule
+            modelBuilder.Entity<WorkflowRule>(entity =>
+            {
+                entity.HasKey(x => x.Id);
+
+                entity.HasOne(x => x.Step)
+                      .WithMany(x => x.Rules)
+                      .HasForeignKey(x => x.WorkflowStepId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.Property(x => x.RuleName).HasDefaultValue("Default");
+                entity.Ignore(x => x.Node); // 👈 handled via EntryConditionJson
+                entity.Property<string>("EntryConditionJson").IsRequired();
+            });
+
+            // WorkflowActor
             modelBuilder.Entity<WorkflowActor>(entity =>
             {
                 entity.HasKey(x => x.Id);
@@ -72,7 +91,18 @@ namespace WFE.Engine.Persistence
                 entity.Property(x => x.Order);
             });
 
-            // 🟨 StepProgress
+            // WorkflowInstance
+            modelBuilder.Entity<WorkflowInstance>(entity =>
+            {
+                entity.HasKey(x => x.CorrelationId);
+                entity.Property(x => x.WorkflowId).IsRequired();
+                entity.Property(x => x.CurrentStep);
+                entity.Property(x => x.IsApproved).HasDefaultValue(false);
+                entity.Property(x => x.IsRejected);
+                entity.Property(x => x.LastActionAt);
+            });
+
+            // StepProgress
             modelBuilder.Entity<StepProgress>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -83,19 +113,17 @@ namespace WFE.Engine.Persistence
                       .HasForeignKey(e => e.WorkflowStepId);
             });
 
-            // 🟨 StepAssignment
+            // StepAssignment
             modelBuilder.Entity<StepAssignment>(entity =>
             {
                 entity.HasKey(x => x.Id);
                 entity.Property(x => x.CorrelationId).IsRequired();
                 entity.Property(x => x.WorkflowStepId).IsRequired();
-
                 entity.Property(x => x.UserId).IsRequired();
                 entity.Property(x => x.Username).IsRequired();
                 entity.Property(x => x.FullName).IsRequired();
                 entity.Property(x => x.Email).IsRequired();
                 entity.Property(x => x.EmployeeCode);
-
                 entity.Property(x => x.IsCurrent).HasDefaultValue(true);
                 entity.Property(x => x.AssignedAt).IsRequired();
 
@@ -105,13 +133,12 @@ namespace WFE.Engine.Persistence
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // 🟥 MassTransit Outbox Tables
+            // OutboxMessage
             modelBuilder.Entity<OutboxMessage>(entity =>
             {
                 entity.ToTable("OutboxMessages");
 
                 entity.HasKey(e => e.MessageId);
-
                 entity.Property(e => e.Destination).IsRequired();
                 entity.Property(e => e.Payload).IsRequired();
                 entity.Property(e => e.MessageType).IsRequired();
@@ -119,19 +146,18 @@ namespace WFE.Engine.Persistence
                 entity.Property(e => e.Processed).HasDefaultValue(false);
             });
 
+            // OutboxState
             modelBuilder.Entity<OutboxState>(entity =>
             {
                 entity.ToTable("OutboxStates");
 
                 entity.HasKey(e => e.StateId);
-
                 entity.Property(e => e.MessageId).IsRequired();
                 entity.Property(e => e.Created).IsRequired();
                 entity.Property(e => e.Delivered);
                 entity.Property(e => e.Status).HasDefaultValue("Pending");
                 entity.Property(e => e.RetryCount).HasDefaultValue(0);
 
-                // Optional: FK and index
                 entity.HasOne(e => e.Message)
                       .WithOne(m => m.State)
                       .HasForeignKey<OutboxState>(e => e.MessageId)
@@ -139,7 +165,6 @@ namespace WFE.Engine.Persistence
 
                 entity.HasIndex(e => e.MessageId).IsUnique();
             });
-
         }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

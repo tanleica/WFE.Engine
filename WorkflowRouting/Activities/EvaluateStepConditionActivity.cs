@@ -9,13 +9,21 @@ using WFE.Engine.Utilities;
 
 namespace WFE.Engine.WorkflowRouting.Activities;
 
-public class EvaluateStepConditionActivity(
-    SagaDbContext db,
-    ILogger<EvaluateStepConditionActivity> logger
-) : IActivity<EvaluateStepConditionArguments, EvaluateStepConditionLog>
+public class EvaluateStepConditionActivity : IActivity<EvaluateStepConditionArguments, EvaluateStepConditionLog>
 {
-    private readonly SagaDbContext _db = db;
-    private readonly ILogger<EvaluateStepConditionActivity> _logger = logger;
+    private readonly SagaDbContext _db;
+    private readonly IRuleTreeEvaluator _ruleTreeEvaluator;
+    private readonly ILogger<EvaluateStepConditionActivity> _logger;
+
+    public EvaluateStepConditionActivity(
+        SagaDbContext db,
+        IRuleTreeEvaluator ruleTreeEvaluator,
+        ILogger<EvaluateStepConditionActivity> logger)
+    {
+        _db = db;
+        _ruleTreeEvaluator = ruleTreeEvaluator;
+        _logger = logger;
+    }
 
     public async Task<ExecutionResult> Execute(ExecuteContext<EvaluateStepConditionArguments> context)
     {
@@ -59,7 +67,7 @@ public class EvaluateStepConditionActivity(
 
             await DbConnectionHelper.UseOpenConnectionAsync(dbType, connectionString, async conn =>
             {
-                (isAllowed, failedRule, filterMode) = await RuleTreeEvaluator.EvaluateAsync(args.RuleTree, conn, parameters);
+                (isAllowed, failedRule, filterMode) = await _ruleTreeEvaluator.EvaluateAsync(args.RuleTree, conn, parameters);
             });
 
             canVote = isAllowed || filterMode == "SoftWarn";
@@ -119,7 +127,7 @@ public class EvaluateStepConditionActivity(
 
     private static bool TreeHasExecutableLeaf(RuleNodeDto node)
     {
-        if ((node.LogicalOperator == null || node.LogicalOperator == "Leaf") 
+        if ((node.LogicalOperator == null || node.LogicalOperator == "Leaf")
             && !string.IsNullOrWhiteSpace(node.PredicateScript))
             return true;
 

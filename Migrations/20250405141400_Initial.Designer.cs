@@ -12,8 +12,8 @@ using WFE.Engine.Persistence;
 namespace WFE.Engine.Migrations
 {
     [DbContext(typeof(SagaDbContext))]
-    [Migration("20250404120159_AddStepAssignmentTable")]
-    partial class AddStepAssignmentTable
+    [Migration("20250405141400_Initial")]
+    partial class Initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -154,6 +154,9 @@ namespace WFE.Engine.Migrations
                     b.Property<string>("ActorFullName")
                         .HasColumnType("text");
 
+                    b.Property<string>("ActorUserId")
+                        .HasColumnType("text");
+
                     b.Property<string>("ActorUsername")
                         .HasColumnType("text");
 
@@ -251,6 +254,34 @@ namespace WFE.Engine.Migrations
                     b.ToTable("WorkflowActors");
                 });
 
+            modelBuilder.Entity("WFE.Engine.Domain.Workflow.WorkflowBranch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EntryConditionJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Priority")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
+                    b.Property<Guid>("WorkflowId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkflowId");
+
+                    b.ToTable("WorkflowBranches");
+                });
+
             modelBuilder.Entity("WFE.Engine.Domain.Workflow.WorkflowInstance", b =>
                 {
                     b.Property<Guid>("CorrelationId")
@@ -304,22 +335,25 @@ namespace WFE.Engine.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("ConditionScript")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("LogicalOperator")
+                    b.Property<string>("EntryConditionJson")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("RuleName")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("Default");
+
+                    b.Property<Guid?>("WorkflowBranchId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("WorkflowStepId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("WorkflowBranchId");
 
                     b.HasIndex("WorkflowStepId");
 
@@ -336,6 +370,9 @@ namespace WFE.Engine.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("ConditionScript")
                         .HasColumnType("text");
 
@@ -350,6 +387,8 @@ namespace WFE.Engine.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
 
                     b.HasIndex("WorkflowId");
 
@@ -400,8 +439,21 @@ namespace WFE.Engine.Migrations
                     b.Navigation("Step");
                 });
 
+            modelBuilder.Entity("WFE.Engine.Domain.Workflow.WorkflowBranch", b =>
+                {
+                    b.HasOne("WFE.Engine.Domain.Workflow.Workflow", null)
+                        .WithMany("Branches")
+                        .HasForeignKey("WorkflowId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("WFE.Engine.Domain.Workflow.WorkflowRule", b =>
                 {
+                    b.HasOne("WFE.Engine.Domain.Workflow.WorkflowBranch", null)
+                        .WithMany("Rules")
+                        .HasForeignKey("WorkflowBranchId");
+
                     b.HasOne("WFE.Engine.Domain.Workflow.WorkflowStep", "Step")
                         .WithMany("Rules")
                         .HasForeignKey("WorkflowStepId")
@@ -413,13 +465,19 @@ namespace WFE.Engine.Migrations
 
             modelBuilder.Entity("WFE.Engine.Domain.Workflow.WorkflowStep", b =>
                 {
-                    b.HasOne("WFE.Engine.Domain.Workflow.Workflow", "Workflow")
+                    b.HasOne("WFE.Engine.Domain.Workflow.WorkflowBranch", "Branch")
+                        .WithMany("Steps")
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WFE.Engine.Domain.Workflow.Workflow", null)
                         .WithMany("Steps")
                         .HasForeignKey("WorkflowId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Workflow");
+                    b.Navigation("Branch");
                 });
 
             modelBuilder.Entity("WFE.Engine.Domain.Outbox.OutboxMessage", b =>
@@ -429,6 +487,15 @@ namespace WFE.Engine.Migrations
 
             modelBuilder.Entity("WFE.Engine.Domain.Workflow.Workflow", b =>
                 {
+                    b.Navigation("Branches");
+
+                    b.Navigation("Steps");
+                });
+
+            modelBuilder.Entity("WFE.Engine.Domain.Workflow.WorkflowBranch", b =>
+                {
+                    b.Navigation("Rules");
+
                     b.Navigation("Steps");
                 });
 

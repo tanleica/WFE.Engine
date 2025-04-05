@@ -1,66 +1,91 @@
-using System.Data;
-using WFE.Engine.DTOs;
 using Dapper;
-using Npgsql;
+using WFE.Engine.DTOs;
+using System.Data;
+using DynamicExpresso;
+using WFE.Engine.Domain.Constants;
 
 namespace WFE.Engine.WorkflowRouting.Helpers
 {
-    public static class RuleTreeEvaluator
+    public class RuleTreeEvaluator : IRuleTreeEvaluator
     {
-        public static async Task<(bool isAllowed, string? failedRuleName, string? filterMode)> EvaluateAsync(
+        public async Task<(bool isAllowed, string? failedRuleName, string? filterMode)> EvaluateAsync(
             RuleNodeDto? node,
-            IDbConnection connection,
-            DynamicParameters parameters)
+            IDbConnection? dbConnection = null,
+            DynamicParameters? sqlParams = null,
+            Dictionary<string, object>? inMemoryVars = null)
         {
+            if (node == null)
+                return (true, null, null); // Null node → interpreted as passed
 
-            if (node == null) return (true, null, null);
-
-            // 🔹 Leaf Node Evaluation
-            if (node.LogicalOperator == null || node.LogicalOperator == "Leaf")
+            if (string.Equals(node.LogicalOperator, "Leaf", StringComparison.OrdinalIgnoreCase) || node.LogicalOperator == null)
             {
                 if (string.IsNullOrWhiteSpace(node.PredicateScript))
-                    throw new InvalidOperationException("Missing ConditionScript in leaf node.");
-
-                var wrappedSql = $"SELECT CASE WHEN ({node.PredicateScript}) THEN 1 ELSE 0 END";
+                    return (true, null, null); // No condition → allow by default
 
                 try
                 {
-                    Console.WriteLine($"🧠 Executing ConditionScript for rule: {node.RuleName ?? "UnnamedRule"}");
-                    Console.WriteLine($"→ SQL: {wrappedSql}");
-                    foreach (var param in parameters.ParameterNames)
-                        Console.WriteLine($"→ Param: {param} = {parameters.Get<object>(param)}");
+                    // Check if PredicateScript is SQL (contains SELECT)
+                    bool isSql = node.PredicateScript.Contains("SELECT", StringComparison.OrdinalIgnoreCase);
 
-                    var passed = await connection.QueryFirstOrDefaultAsync<bool>(wrappedSql, parameters);
+                    if (isSql)
+                    {
+                        if (dbConnection == null || sqlParams == null)
+                            throw new InvalidOperationException($"🛑 SQL-based rule requires dbConnection and sqlParams: Rule = {node.RuleName}");
 
-                    if (!passed)
-                        return (false, node.RuleName ?? "UnnamedRule", node.FilterMode ?? "SoftWarn");
+                        string wrappedSql = $"SELECT CASE WHEN ({node.PredicateScript}) THEN 1 ELSE 0 END";
+                        Console.WriteLine($"🧠 Executing SQL Rule: {node.RuleName ?? "UnnamedRule"}");
+                        Console.WriteLine($"→ SQL: {wrappedSql}");
 
-                    return (true, null, null); // ✅ Passed
+                        var passed = await dbConnection.QueryFirstOrDefaultAsync<bool>(wrappedSql, sqlParams);
+                        if (!passed)
+                            return (false, node.RuleName ?? "UnnamedRule", node.FilterMode ?? FilterModes.SoftWarn);
+
+                        return (true, null, null);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"🧠 Evaluating In-Memory Rule: {node.RuleName ?? "UnnamedRule"}");
+                        Console.WriteLine($"→ Expr: {node.PredicateScript}");
+
+                        var interpreter = new Interpreter();
+                        if (inMemoryVars != null)
+                        {
+                            foreach (var kvp in inMemoryVars)
+                                interpreter.SetVariable(kvp.Key, kvp.Value);
+                        }
+
+                        bool result = interpreter.Eval<bool>(node.PredicateScript);
+                        if (!result)
+                            return (false, node.RuleName ?? "UnnamedRule", node.FilterMode ?? FilterModes.SoftWarn);
+
+                        return (true, null, null);
+                    }
                 }
                 catch (Exception ex)
                 {
                     throw new InvalidOperationException(
-                        $"❌ Error while evaluating rule '{node.RuleName ?? "UnnamedRule"}': {ex.Message}", ex);
+                        $"❌ Failed to evaluate rule '{node.RuleName ?? "UnnamedRule"}' → {ex.Message}", ex);
                 }
             }
 
-            // 🔹 Logical Operator Node (AND / OR)
-            var isAnd = node.LogicalOperator == "And";
-            foreach (var child in node.Children ?? Enumerable.Empty<RuleNodeDto>())
+            // Logical Node (And/Or) — recurse children
+            bool isAnd = string.Equals(node.LogicalOperator, "And", StringComparison.OrdinalIgnoreCase);
+            var children = node.Children ?? new();
+
+            foreach (var child in children)
             {
-                var (result, failedName, mode) = await EvaluateAsync(child, connection, parameters);
+                var (childPassed, failedName, mode) = await EvaluateAsync(child, dbConnection, sqlParams, inMemoryVars);
 
-                if (isAnd && !result)
-                    return (false, failedName, mode); // ⛔ AND failed
+                if (isAnd && !childPassed)
+                    return (false, failedName, mode); // ⛔ fail-fast
 
-                if (!isAnd && result)
-                    return (true, null, null); // ✅ OR shortcut
+                if (!isAnd && childPassed)
+                    return (true, null, null); // ✅ shortcut
             }
 
-            // Final result for grouped node
             return isAnd
-                ? (true, null, null) // ✅ All passed in AND
-                : (false, "No child matched", node.FilterMode ?? "SoftWarn"); // ⛔ All failed in OR
+                ? (true, null, null) // ✅ all passed
+                : (false, "No child matched", node.FilterMode ?? FilterModes.SoftWarn); // ⛔ none passed
         }
     }
 }

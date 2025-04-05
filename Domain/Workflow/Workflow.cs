@@ -7,6 +7,8 @@ namespace WFE.Engine.Domain.Workflow
         public string? Description { get; set; }
         public bool IsActive { get; set; }
 
+        public List<WorkflowBranch> Branches { get; set; } = []; 
+
         public ICollection<WorkflowStep> Steps { get; set; } = [];
     }
 }

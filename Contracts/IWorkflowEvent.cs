@@ -4,7 +4,6 @@ namespace WFE.Engine.Contracts
     {
         Guid CorrelationId { get; }
         DateTime OccurredAt { get; }
-        bool CanGoFurther { get; }
         string? Reason { get; }
     }
 }

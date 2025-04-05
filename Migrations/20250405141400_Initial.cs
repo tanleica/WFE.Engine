@@ -86,6 +86,27 @@ namespace WFE.Engine.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "WorkflowBranches",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    WorkflowId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    Priority = table.Column<int>(type: "integer", nullable: false, defaultValue: 1),
+                    EntryConditionJson = table.Column<string>(type: "text", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WorkflowBranches", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_WorkflowBranches_Workflows_WorkflowId",
+                        column: x => x.WorkflowId,
+                        principalTable: "Workflows",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "WorkflowSteps",
                 columns: table => new
                 {
@@ -94,15 +115,49 @@ namespace WFE.Engine.Migrations
                     StepName = table.Column<string>(type: "text", nullable: false),
                     StepOrder = table.Column<int>(type: "integer", nullable: false),
                     ApprovalType = table.Column<string>(type: "text", nullable: false),
-                    ConditionScript = table.Column<string>(type: "text", nullable: true)
+                    ConditionScript = table.Column<string>(type: "text", nullable: true),
+                    BranchId = table.Column<Guid>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_WorkflowSteps", x => x.Id);
                     table.ForeignKey(
+                        name: "FK_WorkflowSteps_WorkflowBranches_BranchId",
+                        column: x => x.BranchId,
+                        principalTable: "WorkflowBranches",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
                         name: "FK_WorkflowSteps_Workflows_WorkflowId",
                         column: x => x.WorkflowId,
                         principalTable: "Workflows",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "StepAssignments",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    CorrelationId = table.Column<Guid>(type: "uuid", nullable: false),
+                    WorkflowStepId = table.Column<Guid>(type: "uuid", nullable: false),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Username = table.Column<string>(type: "text", nullable: false),
+                    FullName = table.Column<string>(type: "text", nullable: false),
+                    Email = table.Column<string>(type: "text", nullable: false),
+                    EmployeeCode = table.Column<string>(type: "text", nullable: false),
+                    IsCurrent = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
+                    AssignedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    ReplacedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StepAssignments", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_StepAssignments_WorkflowSteps_WorkflowStepId",
+                        column: x => x.WorkflowStepId,
+                        principalTable: "WorkflowSteps",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -116,6 +171,7 @@ namespace WFE.Engine.Migrations
                     WorkflowStepId = table.Column<Guid>(type: "uuid", nullable: false),
                     IsCompleted = table.Column<bool>(type: "boolean", nullable: false),
                     CompletedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    ActorUserId = table.Column<string>(type: "text", nullable: true),
                     ActorUsername = table.Column<string>(type: "text", nullable: true),
                     ActorFullName = table.Column<string>(type: "text", nullable: true),
                     ActorEmail = table.Column<string>(type: "text", nullable: true),
@@ -166,13 +222,18 @@ namespace WFE.Engine.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     WorkflowStepId = table.Column<Guid>(type: "uuid", nullable: false),
-                    RuleName = table.Column<string>(type: "text", nullable: false),
-                    ConditionScript = table.Column<string>(type: "text", nullable: false),
-                    LogicalOperator = table.Column<string>(type: "text", nullable: false)
+                    RuleName = table.Column<string>(type: "text", nullable: false, defaultValue: "Default"),
+                    EntryConditionJson = table.Column<string>(type: "text", nullable: false),
+                    WorkflowBranchId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_WorkflowRule", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_WorkflowRule_WorkflowBranches_WorkflowBranchId",
+                        column: x => x.WorkflowBranchId,
+                        principalTable: "WorkflowBranches",
+                        principalColumn: "Id");
                     table.ForeignKey(
                         name: "FK_WorkflowRule_WorkflowSteps_WorkflowStepId",
                         column: x => x.WorkflowStepId,
@@ -188,6 +249,11 @@ namespace WFE.Engine.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_StepAssignments_WorkflowStepId",
+                table: "StepAssignments",
+                column: "WorkflowStepId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_StepProgresses_WorkflowStepId",
                 table: "StepProgresses",
                 column: "WorkflowStepId");
@@ -198,9 +264,24 @@ namespace WFE.Engine.Migrations
                 column: "WorkflowStepId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_WorkflowBranches_WorkflowId",
+                table: "WorkflowBranches",
+                column: "WorkflowId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkflowRule_WorkflowBranchId",
+                table: "WorkflowRule",
+                column: "WorkflowBranchId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_WorkflowRule_WorkflowStepId",
                 table: "WorkflowRule",
                 column: "WorkflowStepId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkflowSteps_BranchId",
+                table: "WorkflowSteps",
+                column: "BranchId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_WorkflowSteps_WorkflowId",
@@ -213,6 +294,9 @@ namespace WFE.Engine.Migrations
         {
             migrationBuilder.DropTable(
                 name: "OutboxStates");
+
+            migrationBuilder.DropTable(
+                name: "StepAssignments");
 
             migrationBuilder.DropTable(
                 name: "StepProgresses");
@@ -231,6 +315,9 @@ namespace WFE.Engine.Migrations
 
             migrationBuilder.DropTable(
                 name: "WorkflowSteps");
+
+            migrationBuilder.DropTable(
+                name: "WorkflowBranches");
 
             migrationBuilder.DropTable(
                 name: "Workflows");

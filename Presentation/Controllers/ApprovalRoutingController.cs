@@ -4,6 +4,7 @@ using WFE.Engine.DTOs;
 using WFE.Engine.WorkflowRouting.Builders;
 using WFE.Engine.Presentation.Responses;
 using WFE.Engine.Contracts;
+using WFE.Engine.Events;
 
 namespace WFE.Engine.Presentation.Controllers;
 
@@ -51,14 +52,13 @@ public class ApprovalRoutingController : ControllerBase
     public async Task<IActionResult> SubmitStepVote([FromBody] StepVoteDto dto, [FromServices] IPublishEndpoint publishEndpoint)
     {
         // Publish a domain event
-        await publishEndpoint.Publish<IStepVoteSubmitted>(new
+        await publishEndpoint.Publish<IStepVoteSubmitted>(new StepVoteSubmitted()
         {
-            dto.CorrelationId,
-            dto.StepName,
-            dto.Actor,
-            dto.IsApproved,
-            dto.Reason,
-            PerformedAt = DateTime.UtcNow
+            CorrelationId = dto.CorrelationId,
+            StepName = dto.StepName,
+            Actor = dto.Actor,
+            //dto.Reason,
+            OccurredAt = DateTime.UtcNow
         });
 
         return Ok(ApiResponse<object>.Ok(new

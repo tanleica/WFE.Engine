@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+using System.ComponentModel.DataAnnotations.Schema;
 using WFE.Engine.Domain.Constants;
 
 namespace WFE.Engine.Domain.Workflow
@@ -11,13 +11,14 @@ namespace WFE.Engine.Domain.Workflow
         public int StepOrder { get; set; }
         public string ApprovalType { get; set; } = ApprovalTypes.Sequential;
 
-        // For condition checking
         public string? ConditionScript { get; set; } = string.Empty;
 
-        [JsonIgnore]
-        public Workflow Workflow { get; set; } = default!;
-        public ICollection<WorkflowActor> Actors { get; set; } = [];
+        public Guid BranchId { get; set; }         // Now primary owner
 
+        [NotMapped]
+        public WorkflowBranch? Branch { get; set; }
+
+        public ICollection<WorkflowActor> Actors { get; set; } = [];
         public ICollection<WorkflowRule> Rules { get; set; } = [];
     }
 }

@@ -1,18 +1,26 @@
+using System.ComponentModel.DataAnnotations;
 using WFE.Engine.Domain.Constants;
 
 namespace WFE.Engine.DTOs
 {
     public class RuleNodeDto
     {
-        public string? LogicalOperator { get; set; } // "And", "Or", or "Leaf"
+        // 🔹 Required: Every node must have a StepName (especially for leaf execution)
+        public string StepName { get; set; } = string.Empty;
 
-        // Leaf properties (only used if this is a leaf)
+        // 🔹 Node type: "And", "Or", or "Leaf" (null also means Leaf by default)
+        public string? LogicalOperator { get; set; }
+
+        // 🔹 Optional rule metadata for human-friendly naming
         public string? RuleName { get; set; }
-        public string? PredicateScript  { get; set; }
 
-        public string? FilterMode { get; set; } = FilterModes.Forward;
+        // 🔹 SQL or in-memory predicate
+        public string? PredicateScript { get; set; }
 
-        // Recursion: for And/Or/Leaf grouping
+        // 🔹 "Forward", "SoftWarn", "HardBlock" — default to Forward
+        public string FilterMode { get; set; } = FilterModes.Forward;
+
+        // 🔹 Recursion: child nodes if this is a group
         public List<RuleNodeDto>? Children { get; set; }
     }
 }

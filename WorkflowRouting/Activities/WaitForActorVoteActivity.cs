@@ -1,5 +1,6 @@
 using MassTransit;
 using WFE.Engine.Contracts;
+using WFE.Engine.Events;
 
 namespace WFE.Engine.WorkflowRouting.Activities;
 
@@ -17,13 +18,15 @@ public class WaitForActorVoteActivity : IActivity<WaitForActorVoteArguments, Wai
         Console.WriteLine($"   → ActorEmployeeCode: {args.Actor.EmployeeCode}");
 
         // ✅ Publish vote request event
-        await context.Publish<IVoteRequested>(new
+         var evt = new StepVoteRequested
         {
-            args.CorrelationId,
-            args.StepName,
-            args.Actor,
-            RequestedAt = DateTime.UtcNow
-        });
+            CorrelationId = args.CorrelationId,
+            StepName = args.StepName,
+            Actor = args.Actor,
+            OccurredAt = DateTime.UtcNow
+        };
+
+        await context.Publish<IVoteRequested>(evt);
 
         return context.Completed<WaitForActorVoteLog>(new()
         {

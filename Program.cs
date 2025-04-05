@@ -10,6 +10,7 @@ using WFE.Engine.WorkflowTemplates;
 using WFE.Engine.RoutingSlips;
 using WFE.Engine.Simulators;
 using System.Reflection;
+using WFE.Engine.WorkflowRouting.Helpers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,6 +29,9 @@ builder.Services.AddDbContext<SagaDbContext>(options =>
 builder.Services.AddScoped<VoteTallyingService>();
 builder.Services.AddScoped<StepVoteEvaluator>();
 builder.Services.AddScoped<RoutingSlipExecutor>();
+builder.Services.AddScoped<IRuleTreeEvaluator, RuleTreeEvaluator>();
+builder.Services.AddScoped<IBranchRuleParser, BranchRuleParser>();
+
 
 var assemblyName = Assembly.GetEntryAssembly()?.GetName().Name;
 Console.WriteLine($"Detected Service Name: {assemblyName}");

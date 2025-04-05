@@ -12,7 +12,6 @@ namespace WFE.Engine.DTOs
             {
                 CorrelationId = source.CorrelationId,
                 OccurredAt = source.OccurredAt,
-                CanGoFurther = source.CanGoFurther,
                 Reason = source.Reason
             };
         }
@@ -28,7 +27,6 @@ namespace WFE.Engine.DTOs
             {
                 CorrelationId = source.CorrelationId,
                 OccurredAt = source.OccurredAt,
-                CanGoFurther = source.CanGoFurther,
                 Reason = source.Reason,
                 Actor = actor
             };

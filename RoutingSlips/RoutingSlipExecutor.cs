@@ -11,31 +11,23 @@ public class RoutingSlipExecutor(IPublishEndpoint publishEndpoint, ILogger<Routi
 {
     private readonly IPublishEndpoint _publishEndpoint = publishEndpoint;
     private readonly ILogger<RoutingSlipExecutor> _logger = logger;
-
     private readonly SagaDbContext _db = db;
 
     public async Task StartAsync(KickoffRequestDto dto, CancellationToken cancellationToken)
     {
         _logger.LogInformation("🍺 RoutingSlipExecutor StartAsync method called");
-        await _publishEndpoint.Publish<IStartWorkflow>(new
+
+        await _publishEndpoint.Publish<IWorkflowEvent>(new
         {
-            CorrelationId = Guid.NewGuid(),
-            Actor = new Actor
-            {
-                Id = dto.Actor.Id,
-                Username = dto.Actor.Username,
-                FullName = dto.Actor.FullName,
-                Email = dto.Actor.Email,
-                EmployeeCode = dto.Actor.EmployeeCode
-            },
-            dto.Reason,
+            CorrelationId = dto.CorrelationId,
+            Actor = dto.Actor,
             dto.RequestedAt,
             dto.EncryptedConnectionString,
             dto.DbType,
-            dto.FlatSteps,
             dto.Attributes
         }, cancellationToken);
-        _logger.LogInformation("🍻 RoutingSlipExecutor StartAsync Publish<T> passed");
+
+        _logger.LogInformation("🍻 RoutingSlipExecutor StartAsync Publish<IWorkflowEvent> passed");
     }
 
     public async Task FinalizeStepAsync(
@@ -48,7 +40,6 @@ public class RoutingSlipExecutor(IPublishEndpoint publishEndpoint, ILogger<Routi
         _logger.LogInformation("🚩 RoutingSlipExecutor FinalizeStepAsync method called");
         _logger.LogInformation("🚩 isApproved = {isApproved}", isApproved);
 
-        // 👇 Fetch workflow instance
         using var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled);
         var instance = await _db.WorkflowInstances.FirstOrDefaultAsync(x => x.CorrelationId == correlationId);
 
@@ -64,14 +55,30 @@ public class RoutingSlipExecutor(IPublishEndpoint publishEndpoint, ILogger<Routi
             return;
         }
 
-        _logger.LogInformation("🚩 IRequestApproved is being published");
-        await _publishEndpoint.Publish<IRequestApproved>(new
+        if (isApproved)
         {
-            CorrelationId = correlationId,
-            FinalStepName = stepName,
-            Actor = actor,
-            ApprovedAt = DateTime.UtcNow
-        });
+            _logger.LogInformation("🚩 IRequestApproved is being published");
+            await _publishEndpoint.Publish<IRequestApproved>(new
+            {
+                CorrelationId = correlationId,
+                FinalStepName = stepName,
+                Actor = actor,
+                ApprovedAt = DateTime.UtcNow
+            });
+        }
+        else
+        {
+            _logger.LogInformation("🚩 IRequestRejected is being published");
+            await _publishEndpoint.Publish<IRequestRejected>(new
+            {
+                CorrelationId = correlationId,
+                FinalStepName = stepName,
+                Actor = actor,
+                RejectedAt = DateTime.UtcNow,
+                Reason = reason
+            });
+        }
+
         await _publishEndpoint.Publish<IPushNotificationRequested>(new
         {
             CorrelationId = correlationId,
@@ -85,7 +92,6 @@ public class RoutingSlipExecutor(IPublishEndpoint publishEndpoint, ILogger<Routi
             SentAt = DateTime.UtcNow
         });
 
-        _logger.LogInformation("🚩 IRequestApproved was published");
-
+        _logger.LogInformation("🚩 Finalization events published for CorrelationId: {CorrelationId}", correlationId);
     }
 }
