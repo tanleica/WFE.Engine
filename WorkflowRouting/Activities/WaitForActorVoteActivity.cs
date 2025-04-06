@@ -4,11 +4,15 @@ using WFE.Engine.Events;
 
 namespace WFE.Engine.WorkflowRouting.Activities;
 
-public class WaitForActorVoteActivity : IActivity<WaitForActorVoteArguments, WaitForActorVoteLog>
+public class WaitForActorVoteActivity(ILogger<WaitForActorVoteActivity> logger) : IActivity<WaitForActorVoteArguments, WaitForActorVoteLog>
 {
+
+    private ILogger<WaitForActorVoteActivity> _logger = logger;
     public async Task<ExecutionResult> Execute(ExecuteContext<WaitForActorVoteArguments> context)
     {
         var args = context.Arguments;
+
+        _logger.LogInformation("🧩 Executing: {StepName} → WaitForActorVoteActivity", args.StepName);
 
         Console.WriteLine($"🎭 [WaitForActorVoteActivity Execute] Waiting for vote:");
         Console.WriteLine($"   → StepName: {args.StepName}");

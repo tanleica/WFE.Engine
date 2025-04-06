@@ -1,0 +1,33 @@
+{
+    "WorkflowId": "11111111-1111-1111-1111-111111111111",
+    "CorrelationId": "00000000-0000-0000-0000-000000000001",
+    "Actor": {
+        "Id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "Username": "test.actor",
+        "FullName": "Test Actor",
+        "Email": "test.actor@company.com",
+        "EmployeeCode": "EMP100"
+    },
+    "Reason": "Request for 2-day leave",
+    "RequestedAt": "2025-04-07T08:00:00Z",
+    "EncryptedConnectionString": "",
+    "DbType": "SqlServer",
+    "Attributes": [
+        {
+            "Key": "LeaveDays",
+            "Value": "2",
+            "ValueClrType": "System.Int32"
+        },
+        {
+            "Key": "Department",
+            "Value": "HR",
+            "ValueClrType": "System.String"
+        }
+    ],
+    "RuleTree": {
+        "StepName": "Manager Approval",
+        "RuleName": "Short Leave",
+        "PredicateScript": "LeaveDays <= 3",
+        "FilterMode": "Forward"
+    }
+}

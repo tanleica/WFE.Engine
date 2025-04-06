@@ -2,32 +2,56 @@ using MassTransit;
 using WFE.Engine.DTOs;
 using WFE.Engine.Contracts;
 using WFE.Engine.Persistence;
-using System.Transactions;
 using Microsoft.EntityFrameworkCore;
+using System.Transactions;
+using WFE.Engine.RoutingSlips;
+using Microsoft.Extensions.Logging;
+using WFE.Engine.Events;
+using WFE.Engine.WorkflowRouting.Builders;
 
 namespace WFE.Engine.RoutingSlips;
 
-public class RoutingSlipExecutor(IPublishEndpoint publishEndpoint, ILogger<RoutingSlipExecutor> logger, SagaDbContext db)
+public class RoutingSlipExecutor(
+    IBus bus,
+    IPublishEndpoint publishEndpoint,
+    ILogger<RoutingSlipExecutor> logger,
+    SagaDbContext db,
+    IRoutingSlipBuilderService builder)
 {
+    private IBus _bus = bus;
     private readonly IPublishEndpoint _publishEndpoint = publishEndpoint;
     private readonly ILogger<RoutingSlipExecutor> _logger = logger;
     private readonly SagaDbContext _db = db;
+    private readonly IRoutingSlipBuilderService _builder = builder;
 
     public async Task StartAsync(KickoffRequestDto dto, CancellationToken cancellationToken)
     {
         _logger.LogInformation("🍺 RoutingSlipExecutor StartAsync method called");
 
-        await _publishEndpoint.Publish<IWorkflowEvent>(new
+        // Step 1: Build the routing slip
+        var routingSlip = await _builder.BuildAsync(dto);
+        _logger.LogInformation("🧱 Routing slip built with {ActivityCount} activities for CorrelationId: {CorrelationId}",
+            routingSlip.Itinerary.Count, dto.CorrelationId);
+
+        // Step 2: Schedule it for execution
+        await _bus.Execute(routingSlip, cancellationToken);
+        _logger.LogInformation("🚀 Routing slip execution scheduled.");
+
+        // Step 3: Publish the kickoff event
+        await _publishEndpoint.Publish<IStartWorkflow>(new StartWorkflow
         {
             CorrelationId = dto.CorrelationId,
             Actor = dto.Actor,
-            dto.RequestedAt,
-            dto.EncryptedConnectionString,
-            dto.DbType,
-            dto.Attributes
+            OccurredAt = dto.RequestedAt,
+            CanGoFurther = true,
+            Reason = dto.Reason,
+            DbType = dto.DbType,
+            EncryptedConnectionString = dto.EncryptedConnectionString,
+            StepName = string.Empty, // start has no step yet
+            Attributes = dto.Attributes ?? []
         }, cancellationToken);
 
-        _logger.LogInformation("🍻 RoutingSlipExecutor StartAsync Publish<IWorkflowEvent> passed");
+        _logger.LogInformation("📣 StartWorkflow event published for CorrelationId = {CorrelationId}", dto.CorrelationId);
     }
 
     public async Task FinalizeStepAsync(
@@ -37,61 +61,65 @@ public class RoutingSlipExecutor(IPublishEndpoint publishEndpoint, ILogger<Routi
         Actor actor,
         string? reason = null)
     {
-        _logger.LogInformation("🚩 RoutingSlipExecutor FinalizeStepAsync method called");
-        _logger.LogInformation("🚩 isApproved = {isApproved}", isApproved);
+        _logger.LogInformation("🚩 FinalizeStepAsync called for CorrelationId: {CorrelationId}, Step: {StepName}, Approved: {Approved}", correlationId, stepName, isApproved);
 
         using var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled);
         var instance = await _db.WorkflowInstances.FirstOrDefaultAsync(x => x.CorrelationId == correlationId);
 
         if (instance == null)
         {
-            _logger.LogWarning("🚨 WorkflowInstance not found for correlation ID: {CorrelationId}", correlationId);
+            _logger.LogWarning("🚨 WorkflowInstance not found for CorrelationId: {CorrelationId}", correlationId);
             return;
         }
 
         if (instance.IsApproved || instance.IsRejected == true)
         {
-            _logger.LogWarning("🚨 Workflow already finalized. Skipping push. [CorrelationId: {CorrelationId}]", correlationId);
+            _logger.LogWarning("🚨 Workflow already finalized. Skipping. CorrelationId: {CorrelationId}", correlationId);
             return;
         }
 
         if (isApproved)
         {
-            _logger.LogInformation("🚩 IRequestApproved is being published");
-            await _publishEndpoint.Publish<IRequestApproved>(new
+            await _publishEndpoint.Publish<IRequestApproved>(new RequestApproved
             {
                 CorrelationId = correlationId,
-                FinalStepName = stepName,
                 Actor = actor,
-                ApprovedAt = DateTime.UtcNow
+                StepName = stepName,
+                OccurredAt = DateTime.UtcNow,
+                CanGoFurther = true,
+                Reason = reason
             });
         }
         else
         {
-            _logger.LogInformation("🚩 IRequestRejected is being published");
-            await _publishEndpoint.Publish<IRequestRejected>(new
+            await _publishEndpoint.Publish<IRequestRejected>(new RequestRejected
             {
                 CorrelationId = correlationId,
-                FinalStepName = stepName,
                 Actor = actor,
-                RejectedAt = DateTime.UtcNow,
-                Reason = reason
+                StepName = stepName,
+                OccurredAt = DateTime.UtcNow,
+                CanGoFurther = false,
+                Reason = reason ?? "No reason provided"
             });
         }
 
-        await _publishEndpoint.Publish<IPushNotificationRequested>(new
+        await _publishEndpoint.Publish<IPushNotificationRequested>(new PushNotificationRequested
         {
             CorrelationId = correlationId,
+            Actor = actor,
+            StepName = stepName,
+            OccurredAt = DateTime.UtcNow,
+            CanGoFurther = true,
+            Reason = reason,
             Title = isApproved
                 ? $"🎉 Request Approved by {actor.FullName}"
                 : $"❌ Request Rejected by {actor.FullName}",
-            Message = isApproved
-                ? $"🎉 Request Approved by {actor.FullName}"
-                : $"❌ Request Rejected by {actor.FullName}",
-            RecipientUsername = "tannv",
-            SentAt = DateTime.UtcNow
+            Message = reason ?? "No reason provided",
+            UserId = actor.Id
         });
 
-        _logger.LogInformation("🚩 Finalization events published for CorrelationId: {CorrelationId}", correlationId);
+        _logger.LogInformation("✅ Finalization events published for CorrelationId: {CorrelationId}", correlationId);
+
+        scope.Complete();
     }
 }

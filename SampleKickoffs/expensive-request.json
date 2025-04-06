@@ -1,0 +1,33 @@
+{
+    "WorkflowId": "11111111-1111-1111-1111-111111111111",
+    "CorrelationId": "00000000-0000-0000-0000-000000000003",
+    "Actor": {
+        "Id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        "Username": "costly.request",
+        "FullName": "Costly Request",
+        "Email": "costly.request@company.com",
+        "EmployeeCode": "EMP300"
+    },
+    "Reason": "Expense reimbursement over 1000",
+    "RequestedAt": "2025-04-07T08:00:00Z",
+    "EncryptedConnectionString": "",
+    "DbType": "SqlServer",
+    "Attributes": [
+        {
+            "Key": "TotalCost",
+            "Value": "1200",
+            "ValueClrType": "System.Decimal"
+        },
+        {
+            "Key": "Currency",
+            "Value": "USD",
+            "ValueClrType": "System.String"
+        }
+    ],
+    "RuleTree": {
+        "StepName": "Finance Review",
+        "RuleName": "Cost > 1000",
+        "PredicateScript": "TotalCost > 1000",
+        "FilterMode": "HardBlock"
+    }
+}

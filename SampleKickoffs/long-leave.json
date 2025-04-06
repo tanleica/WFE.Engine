@@ -1,0 +1,45 @@
+{
+    "WorkflowId": "11111111-1111-1111-1111-111111111111",
+    "CorrelationId": "00000000-0000-0000-0000-000000000002",
+    "Actor": {
+        "Id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "Username": "long.leave",
+        "FullName": "Long Leave",
+        "Email": "long.leave@company.com",
+        "EmployeeCode": "EMP200"
+    },
+    "Reason": "Request for 10-day leave",
+    "RequestedAt": "2025-04-07T08:00:00Z",
+    "EncryptedConnectionString": "",
+    "DbType": "SqlServer",
+    "Attributes": [
+        {
+            "Key": "LeaveDays",
+            "Value": "10",
+            "ValueClrType": "System.Int32"
+        },
+        {
+            "Key": "Department",
+            "Value": "Finance",
+            "ValueClrType": "System.String"
+        }
+    ],
+    "RuleTree": {
+        "StepName": "Manager Approval",
+        "LogicalOperator": "Or",
+        "Children": [
+            {
+                "StepName": "Manager Approval",
+                "RuleName": "Up to 3 days",
+                "PredicateScript": "LeaveDays <= 3",
+                "FilterMode": "Forward"
+            },
+            {
+                "StepName": "Director Approval",
+                "RuleName": "More than 3",
+                "PredicateScript": "LeaveDays > 3",
+                "FilterMode": "HardBlock"
+            }
+        ]
+    }
+}

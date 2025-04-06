@@ -11,6 +11,8 @@ namespace WFE.Engine.WorkflowRouting.Activities
         {
             var args = context.Arguments;
 
+            _logger.LogInformation("🧩 Executing: {StepName} → WaitForActorVoteActivity", args.StepName);
+
             var payload = new
             {
                 args.Title,

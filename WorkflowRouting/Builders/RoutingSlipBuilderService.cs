@@ -32,9 +32,9 @@ namespace WFE.Engine.WorkflowRouting.Builders
         {
             _logger.LogInformation("⚙️ RoutingSlipBuilderService.BuildAsync() called");
 
-            var correlationId = request.CorrelationId != Guid.Empty
-                ? request.CorrelationId
-                : NewId.NextGuid();
+            var correlationId = NewId.NextGuid(); // always use a fresh ID
+            _logger.LogWarning("🔄 Overriding incoming CorrelationId with new: {CorrelationId}", correlationId);
+            request.CorrelationId = correlationId;
 
             var workflowId = request.WorkflowId;
 
