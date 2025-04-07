@@ -1,43 +1,26 @@
 using MassTransit;
 using WFE.Engine.Contracts;
+using WFE.Engine.Notifications;
 
-namespace WFE.Engine.WorkflowRouting.Consumers
+namespace WFE.Engine.WorkflowRouting.Consumers;
+
+public class PushNotificationRequestedConsumer(
+    IPushNotificationDispatcher dispatcher,
+    ILogger<PushNotificationRequestedConsumer> logger) : IConsumer<IPushNotificationRequested>
 {
-    public class PushNotificationRequestedConsumer(ILogger<PushNotificationRequestedConsumer> logger, HttpClient httpClient) : IConsumer<IPushNotificationRequested>
+    public async Task Consume(ConsumeContext<IPushNotificationRequested> context)
     {
-        private readonly ILogger<PushNotificationRequestedConsumer> _logger = logger;
-        private readonly HttpClient _httpClient = httpClient;
+        var message = context.Message;
 
-        public async Task Consume(ConsumeContext<IPushNotificationRequested> context)
-        {
-            var msg = context.Message;
+        logger.LogInformation("📨 [PushNotificationRequestedConsumer] Received push request: {Title} => {UserId}",
+            message.Title, message.UserId);
 
-            _logger.LogInformation("PushNotificationConsumer >> Title: {Title}, To: {Recipient}, Msg: {Message}",
-                msg.Title, msg.UserId, msg.Message);
-
-            var payload = new
-            {
-                msg.Message,
-                UserId = "b2e05ec4-6022-4f35-baea-ceb7fa2ee9dd"
-            };
-
-            try
-            {
-                var response = await _httpClient.PostAsJsonAsync(
-                    "https://alpha.histaff.vn/api/WebPush/SendSimpleWebPushNotification",
-                    payload,
-                    context.CancellationToken);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    _logger.LogWarning("Push notification failed: {StatusCode}", response.StatusCode);
-                }
-
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "PushNotificationActivity failed.");
-            }
-        }
+        await dispatcher.SendAsync(
+            title: message.Title,
+            message: message.Message,
+            userId: message.UserId,
+            correlationId: message.CorrelationId,
+            actor: message.Actor,
+            cancellationToken: context.CancellationToken);
     }
 }

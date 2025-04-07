@@ -33,6 +33,7 @@ public class SimulatedKickoffWorker(IServiceProvider serviceProvider, ILogger<Si
                 var builder = scope.ServiceProvider.GetRequiredService<IRoutingSlipBuilderService>();
                 var executor = scope.ServiceProvider.GetRequiredService<RoutingSlipExecutor>();
 
+                /*
                 var jsonFiles = Directory.GetFiles(JsonFolder, "*.json");
                 if (jsonFiles.Length == 0)
                 {
@@ -40,8 +41,13 @@ public class SimulatedKickoffWorker(IServiceProvider serviceProvider, ILogger<Si
                     await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
                     continue;
                 }
+                */
 
-                var selectedFile = jsonFiles[rnd.Next(jsonFiles.Length)];
+                var jsonFiles = new[] { Path.Combine(JsonFolder, "multi-branch-demo.json") };
+                var selectedFile = jsonFiles[0]; // hardcoded for now
+
+
+                //var selectedFile = jsonFiles[rnd.Next(jsonFiles.Length)];
                 var json = await File.ReadAllTextAsync(selectedFile, stoppingToken);
 
                 var kickoffDto = JsonSerializer.Deserialize<KickoffRequestDto>(json, new JsonSerializerOptions

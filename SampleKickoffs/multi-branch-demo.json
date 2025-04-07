@@ -1,0 +1,58 @@
+{
+    "WorkflowId": "aaaaaaaa-1111-2222-3333-444444444444",
+    "CorrelationId": "00000000-0000-0000-0000-000000000000",
+    "Reason": "Test multi-branch selection",
+    "RequestedAt": "2025-04-06T20:00:00Z",
+    "EncryptedConnectionString": "",
+    "DbType": "SqlServer",
+    "Actor": {
+        "Id": "f1c1aa01-2222-3333-4444-555566667777",
+        "Username": "multi.test",
+        "FullName": "Multi Branch Tester",
+        "Email": "multi.test@histaff.vn",
+        "EmployeeCode": "EMP888"
+    },
+    "Attributes": [
+        {
+            "Key": "LeaveDays",
+            "Value": "2",
+            "ValueClrType": "System.Int32"
+        },
+        {
+            "Key": "TotalCost",
+            "Value": "500",
+            "ValueClrType": "System.Decimal"
+        },
+        {
+            "Key": "Department",
+            "Value": "Finance",
+            "ValueClrType": "System.String"
+        }
+    ],
+    "RuleTree": {
+        "LogicalOperator": "Or",
+        "Children": [
+            {
+                "StepName": "Quick Approval",
+                "LogicalOperator": "Leaf",
+                "RuleName": "BranchA",
+                "PredicateScript": "LeaveDays < 3",
+                "FilterMode": "HardBlock"
+            },
+            {
+                "StepName": "Standard Review",
+                "LogicalOperator": "Leaf",
+                "RuleName": "BranchB",
+                "PredicateScript": "LeaveDays >= 3 && TotalCost < 1000",
+                "FilterMode": "HardBlock"
+            },
+            {
+                "StepName": "Finance Director Approval",
+                "LogicalOperator": "Leaf",
+                "RuleName": "BranchC",
+                "PredicateScript": "TotalCost >= 1000",
+                "FilterMode": "HardBlock"
+            }
+        ]
+    }
+}

@@ -11,6 +11,7 @@ using WFE.Engine.RoutingSlips;
 using WFE.Engine.Simulators;
 using System.Reflection;
 using WFE.Engine.WorkflowRouting.Helpers;
+using WFE.Engine.Notifications;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,7 +32,8 @@ builder.Services.AddScoped<StepVoteEvaluator>();
 builder.Services.AddScoped<RoutingSlipExecutor>();
 builder.Services.AddScoped<IRuleTreeEvaluator, RuleTreeEvaluator>();
 builder.Services.AddScoped<IBranchRuleParser, BranchRuleParser>();
-
+builder.Services.AddHttpClient<IPushNotificationDispatcher, PushNotificationDispatcher>();
+builder.Services.AddHttpClient<IPushNotificationDispatcher, HttpPushNotificationDispatcher>();
 
 var assemblyName = Assembly.GetEntryAssembly()?.GetName().Name;
 Console.WriteLine($"Detected Service Name: {assemblyName}");
